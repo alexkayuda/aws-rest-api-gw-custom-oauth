@@ -12,81 +12,67 @@ provider "aws" {
   region = var.region
 }
 
-# module "rest_api_gw" {
-#   source = "../../modules/rest_api_gateway"
-#   name = "oauth-rest-api-gw"
-#   env = var.environment
-#   region = var.region
-#   stage = var.environment 
-#   routes = [
-#     # {
-#     #   path_parts         = ["v1", "backend-test"]
-#     #   method             = "GET"
-#     #   lambda_name        = module.lambda_backend.name
-#     #   lambda_invoke_arn  = module.lambda_backend.invoke_arn
-#     #   authorization_type = "CUSTOM"
-#     #   authorizer_id      = module.auth_custom.authorizer_id
-#     # },
-#     {
-#       path_parts         = ["v1", "test"]
-#       method             = "POST"
-#       lambda_name        = module.test-lambda.name
-#       lambda_invoke_arn  = module.test-lambda.invoke_arn
-#       authorization_type = "NONE"
-#       # authorizer_id      = module.auth_custom.authorizer_id
-#     }
-#   ]
-# }
+################################################################################################
 
-module "api_gw" {
+module "rest_api_gw" {
   source = "../../modules/rest_api_gateway"
-  # depends_on = [module.test-lambda]
   env    = var.environment
-  name   = "rest-api-gw-${var.environment}"
+  name   = "rest-oauth-api-gw-${var.environment}"
   region = var.region
   stage  = var.region
-  # routes = [
-  #   {
-  #     path_parts         = ["v1", "test"]
-  #     method             = "POST"
-  #     lambda_name        = module.test-lambda.name
-  #     lambda_invoke_arn  = module.test-lambda.invoke_arn
-  #     authorization_type = "NONE"
-  #     # authorizer_id      = module.auth_custom.authorizer_id
-  #   }
-  # ]
 }
 
-module "test-lambda" {
-  source = "../../modules/lambda"
-
-  name = "test-lambda"
-  runtime       = "provided.al2"
-  handler       = "bootstrap"
-  filename      = "${path.module}/../../../lambdas/test-lambda/test-lambda.zip" # needs to be an S3 bucket OR ignore and deploy via GitHub Actions
-
-  attach_vpc_policy         = true
-  api_gateway_execution_arn = module.api_gw.execution_arn
-
-  allow_api_gateway_to_trigger = module.api_gw.execution_arn
-  
-  environment_variables = {
-    SECRETS_MANAGER_RDS_CREDS = "ARN OF Secrets Manager RDS Creds"
-    LOG_LEVEL                 = "INFO"
-  }
-  tags = {
-    APP   = "OAuth API GW"
-    OWNER = "platform"
-    ENV   = "dev"
-  }
+module "lambda_authorizer" {
+  source   = "../../modules/lambda"
+  name     = "custom-authorizer"
+  runtime  = "provided.al2"
+  handler  = "bootstrap"
+  filename = "${path.module}/../../../lambdas/custom-authorizer-lambda/custom-authorizer-lambda.zip"
+  # source_code_hash   = filebase64sha256("build/authorizer.zip")
 }
 
+# TEST Lambda Backend
+module "lambda_test" {
+  source   = "../../modules/lambda"
+  name     = "test-lambda"
+  runtime  = "provided.al2"
+  handler  = "bootstrap"
+  filename = "${path.module}/../../../lambdas/test-lambda/test-lambda.zip" # needs to be an S3 bucket OR ignore and deploy via GitHub Actions
 
-# module "authorizer" {
-#   source            = "./modules/api_gateway_authorizer"
-#   name              = "CustomAuth"
-#   rest_api_id       = module.api_gw.id
-#   lambda_invoke_arn = module.lambda_authorizer.invoke_arn
-#   lambda_name       = module.lambda_authorizer.name
-#   execution_arn     = module.api_gw.execution_arn
-# }
+  # Allow Lambda to modify VPC & Subnets
+  attach_vpc_policy = true
+
+  # Adds API GW as a trigger
+  # api_gateway_execution_arn = module.rest_api_gw.execution_arn
+}
+
+# Binding Lambda Authorizer to Rest API GW
+module "authorizer" {
+  depends_on = [module.rest_api_gw, module.lambda_authorizer]
+
+  source            = "../../modules/rest_api_gateway_authorizer"
+  name              = "CustomAuth"
+  rest_api_id       = module.rest_api_gw.id
+  execution_arn     = module.rest_api_gw.execution_arn
+  lambda_invoke_arn = module.lambda_authorizer.invoke_arn
+  lambda_name       = module.lambda_authorizer.name
+}
+
+# Setup Lambda permission to allow API Gateway to invoke the Lambda function
+resource "aws_lambda_permission" "lambda_test_api_gateway_trigger" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  principal     = "apigateway.amazonaws.com"
+  function_name = module.lambda_test.name
+  source_arn    = "${module.rest_api_gw.execution_arn}/*/*"
+}
+
+# Setup Lambda permission to allow API Gateway to invoke the Lambda function
+resource "aws_lambda_permission" "lambda_authorizer_api_gateway_trigger" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  principal     = "apigateway.amazonaws.com"
+  function_name = module.lambda_authorizer.name
+  source_arn    = "${module.rest_api_gw.execution_arn}/*/*"
+}
+

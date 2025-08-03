@@ -1,10 +1,10 @@
-resource "aws_api_gateway_authorizer" "this" {
+resource "aws_api_gateway_authorizer" "custom-authorizer" {
   name                             = var.name
   rest_api_id                      = var.rest_api_id
   authorizer_uri                   = var.lambda_invoke_arn
   authorizer_result_ttl_in_seconds = 300
   type                             = "TOKEN"
-  identity_source                  = "method.request.header.Authorization"
+  identity_source                  = "method.request.header.authorizationToken"
 }
 
 resource "aws_lambda_permission" "auth" {

@@ -15,7 +15,6 @@ resource "aws_iam_role" "api_gw_cloudwatch_role" {
 resource "aws_iam_role_policy_attachment" "api_gw_cloudwatch_attach" {
     role       = aws_iam_role.api_gw_cloudwatch_role.name
     policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
-    # policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
 }
 
 resource "aws_api_gateway_account" "account_settings" {

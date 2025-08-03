@@ -92,11 +92,7 @@ variable "attach_vpc_policy" {
   default     = false
 }
 
-variable "allow_api_gateway_to_trigger" {
-  description = "API Gateway execution ARN for permissions"
-  type        = string
-}
-
-variable "api_gateway_execution_arn" {
-  type = string
-}
+# variable "api_gateway_execution_arn" {
+#   type = string
+#   default = ""
+# }

@@ -1,4 +1,4 @@
-resource "aws_lambda_function" "my-lambda-function" {
+resource "aws_lambda_function" "lambda-function" {
   function_name = var.name
   handler       = var.handler
   runtime       = var.runtime
@@ -18,22 +18,12 @@ resource "aws_lambda_function" "my-lambda-function" {
     mode = "Active"
   }
 
-  kms_key_arn = var.kms_key_arn
-
   vpc_config {
     subnet_ids         = var.subnet_ids
     security_group_ids = var.security_group_ids
   }
 
-
-
-  # dynamic "vpc_config" {
-  #   for_each = length(var.subnet_ids) > 0 ? [1] : []
-  #   content {
-  #     subnet_ids         = var.subnet_ids
-  #     security_group_ids = var.security_group_ids
-  #   }
-  # }
+  kms_key_arn = var.kms_key_arn
 
   layers = var.layers
 
