@@ -3,9 +3,9 @@ resource "aws_api_gateway_method" "api-method-v1-test-GET" {
   rest_api_id   = aws_api_gateway_rest_api.api-gw.id
   resource_id   = aws_api_gateway_resource.api-resource-v1-test.id
   http_method   = "GET"
-  # authorization = "NONE"
-  authorization = "CUSTOM"
-  authorizer_id = aws_api_gateway_authorizer.my_authorizer.id
+  authorization = "NONE"
+  # authorization = "CUSTOM"
+  # authorizer_id = aws_api_gateway_authorizer.my_authorizer.id
 }
 
 resource "aws_api_gateway_integration" "api-method-v1-test-GET-lambda-integration" {
