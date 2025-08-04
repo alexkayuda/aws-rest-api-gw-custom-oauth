@@ -14,6 +14,7 @@ provider "aws" {
 
 ################################################################################################
 
+# Creating Rest API GateWay
 module "rest_api_gw" {
   source = "../../modules/rest_api_gateway"
   env    = var.environment
@@ -22,6 +23,21 @@ module "rest_api_gw" {
   stage  = var.region
 }
 
+# Creating WAF
+module "waf_for_rest_apt_gw" {
+  source            = "../../modules/waf"
+  name              = "api-core-waf"
+  enable_rate_limit = false
+  # rate_limit        = 1000
+}
+
+# Associate WAF with API GW's Stage
+resource "aws_wafv2_web_acl_association" "rest_api_waf" {
+  resource_arn = "arn:aws:apigateway:${var.region}::/restapis/${module.rest_api_gw.id}/stages/${module.rest_api_gw.stage_name}"
+  web_acl_arn  = module.waf_for_rest_apt_gw.web_acl_arn
+}
+
+# Creating Custom Authorizer Lambda
 module "lambda_authorizer" {
   source   = "../../modules/lambda"
   name     = "custom-authorizer"
@@ -31,7 +47,7 @@ module "lambda_authorizer" {
   # source_code_hash   = filebase64sha256("build/authorizer.zip")
 }
 
-# TEST Lambda Backend
+# Creating TEST Lambda Backend
 module "lambda_test" {
   source   = "../../modules/lambda"
   name     = "test-lambda"
@@ -46,7 +62,7 @@ module "lambda_test" {
   # api_gateway_execution_arn = module.rest_api_gw.execution_arn
 }
 
-# Binding Lambda Authorizer to Rest API GW
+# Binding Lambda Authorizer with Rest API GW
 module "authorizer" {
   depends_on = [module.rest_api_gw, module.lambda_authorizer]
 
@@ -58,7 +74,7 @@ module "authorizer" {
   lambda_name       = module.lambda_authorizer.name
 }
 
-# Setup Lambda permission to allow API Gateway to invoke the Lambda function
+# Allowing API Gateway to invoke the TEST Lambda function
 resource "aws_lambda_permission" "lambda_test_api_gateway_trigger" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -67,7 +83,7 @@ resource "aws_lambda_permission" "lambda_test_api_gateway_trigger" {
   source_arn    = "${module.rest_api_gw.execution_arn}/*/*"
 }
 
-# Setup Lambda permission to allow API Gateway to invoke the Lambda function
+# Allowing API Gateway to invoke the Authorizer Lambda function
 resource "aws_lambda_permission" "lambda_authorizer_api_gateway_trigger" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"

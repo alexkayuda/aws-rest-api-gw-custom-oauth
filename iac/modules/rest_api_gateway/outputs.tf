@@ -17,3 +17,7 @@ output "execution_arn" {
 output "api-resource-v1-test-id"{
   value = aws_api_gateway_resource.api-resource-v1-test.id
 }
+
+output "stage_name" {
+  value = aws_api_gateway_stage.dev-stage.stage_name
+}
